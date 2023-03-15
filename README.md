@@ -18,7 +18,7 @@ a fire-vegetation feedback.
 
 TimeSeries/
 
-Codes in this folder produce only one time series for set parameter values. Contains:
+Codes in this folder produce only one time series for set parameter values (e.g. Fig. 2 in Magnani et al., 2023). Contains:
 
   mainfire.f90 : master code simulating the time series of vegetation cover and fires.
                Subroutines reported at the end of the file.
@@ -33,7 +33,7 @@ Codes in this folder produce only one time series for set parameter values. Cont
 
 SensitivityAnalysis/
 
-Codes in this folder explore a section of the parameter space identified by 2 parameters.
+Codes in this folder explore a section of the parameter space identified by 2 parameters (e.g. Fig. 4 in Magnani et al., 2023).
 Change 'idummy' and 'MSEED' in run3() several times to obtain the parameter plane section of the paper. Contains:
 
   mainfire.f90 : master code iterating over 2 parameters and simulating the time series of vegetation cover and fires.
