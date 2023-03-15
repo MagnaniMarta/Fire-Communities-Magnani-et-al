@@ -1,4 +1,4 @@
-# Fire-Communities-Magnani-et-al
+# Fire-Communities (Magnani et al. 2023)
 This repository provides the code to model plant-fire relationship in the Mediterranean, tropical and boreal communities, as in Magnani et al. 
 
 # Summary
