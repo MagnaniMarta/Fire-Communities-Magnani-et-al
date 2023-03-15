@@ -14,10 +14,13 @@
 !                                                                               !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-program mainfire
-use parafire
+program mainfire !start program
+
+use parafire !load parameters of plant characteristics from parafireXXX.f90
 
 implicit none
+
+!++++++++++++++++++++++++  Definitions +++++++++++++++++++++++++++++++++++++++++!
 
 double precision,dimension(3) ::  b                          ! plant covers
 double precision,dimension(3) ::  f,fout                     ! variables for plant cover calculation
@@ -31,25 +34,28 @@ double precision              ::  firevf                     ! fire free days co
 integer                       ::  iifire                     ! fire flag 
 integer                       ::  ic                         ! iteration c2 parameter
 integer                       ::  stfreq(8),k                ! frequency of states
-!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-!open output file: iteration parameter values and frequency of each state before fire
-open (22,file='stats.dat')
+!++++++++++++++++++++++++++ Initializations +++++++++++++++++++++++++++++++++++++++!
+
+open (22,file='stats.dat') !open output file
     
 !initialization parameters
-firevf=NN
-idummy=12
+firevf=NN  
+idummy=12 ! change here to generate different random initial conditions
 
-!iteration over c2
-do ic=235,949,17
-!ic=235,949,17  ! for Med community
-!ic=750,3000,56 ! for Trop community
-!ic= 650,2650,50   ! for Bor community
+!++++++++++++++++++++++++++ Start loop over c2 values ++++++++++++++++++++++++++++++!
+!+++++++++++++++++++++ uncomment one of the following intervals ++++++++++++++++++++!
+
+do ic=235,949,17    ! values for Med community    
+!do ic=750,3000,56     ! value for Trop community
+!do ic= 650,2650,50    ! values for Bor community
 
  c2=0.0001d0*ic
 
- !iteration over r1
+ !++++++++++++++++++++++++++ Start loop over R1 values ++++++++++++++++++++++++++++++!
+ 
  do r1=1,90,2
+ 
  R=0.01d0*(/r1,r2,r3/)
 
  !initial covers: random covers between (0:1] 
@@ -64,42 +70,47 @@ do ic=235,949,17
  lastF=0
  iifire=0
 
-  ! time loop
+  !++++++++++++++++++++++++++ Start time loop +++++++++++++++++++++++++++++++++++++++++!
+  ! 2 steps: 1) compute deterministic succession b(t)->b(t+dt); 2) a stochastic fire   
+  ! may occur b(t+dt)->R*b(t+dt)                                                        
+  
   do i=1,NN      
           
-    ! integration deterministic succession
-    f=b 
-    call rk4(f,fout)
-    f=fout
+    ! integration deterministic succession:
+    f=b !b(t)
+    call rk4(f,fout) !subroutine: fourth order Runge-Kutta scheme (see line 147)
+    f=fout !b(t+dt)
           
     ! stochastic fire dynamics:
     ! average retur time Tf(L_i,b_i)
     ! Bernoulli condition for Poisson events
     ! with occurrence probability P=dt/Tf
-
     dummy=ran3(idummy)             
-    tf=1./(L(1)*b(1)+L(2)*b(2)+L(3)*b(3)+eps)
+    tf=1./(L(1)*b(1)+L(2)*b(2)+L(3)*b(3)+eps) !average fire return time
     tfdum=nint(dummy*365*tf)
-
+    
+    !-------- fire condition -------------------------------------------
     if (tfdum==nint(tf)*365-1 .and. int(firevf)>=minfirerettime) then
-!    if (dummy<=hy/tf .and. int(firevf)>=minfirerettime) then  !alternative Bernoulli condition
+    ! if (dummy<=hy/tf .and. int(firevf)>=minfirerettime) then  !alternative Bernoulli condition
 
-      iifire=1 !fire
-      firevf=0.d0
+      iifire=1      !fire occur
+      firevf=0.d0   !reset time since last fire
 
+      !compute statistics over last 20% of simulation time 
       if (i>=statout) then
-        tfav=tfav+0.001*real(i-lastF)*dtoyr
-        lastF=i
-        numF=numF+1
-        call decide(real(b),k)
-        stfreq(k)=stfreq(k)+1
+        tfav=tfav+0.001*real(i-lastF)*dtoyr ! sum fire return interval
+        lastF=i                ! time of last fire
+        numF=numF+1            ! number of fires
+        call decide(real(b),k) ! community composition (see line 198)
+        stfreq(k)=stfreq(k)+1  ! stfreq=[b1,b2,b3,b1+b2,b1+b3,b2+b3,b1+b2+b3,none]
       end if
           
     else  
-       iifire=0 !no fire
-       firevf=firevf+hy
+       iifire=0             !no fire
+       firevf=firevf+hy     !increase time since last fire
           
-      end if
+    end if
+   !-------------------------------------------------------------------
 
     !vegetation update
     call fireocc(f,iifire,fout)
@@ -107,28 +118,36 @@ do ic=235,949,17
 
   end do
 
-  if(numF==0)then
+!+++++++++++++++ end time loop +++++++++++++++++++++++++++++++++++++++++++!
+
+  !if no fire has occurred compute the asymptotic community 
+  if(numF==0)then 
     call decide(real(b),k)
     stfreq(k)=stfreq(k)+1
   end if
 
-  write(22,'(11f15.4)')c2,R(1),real(stfreq),real(numF)
-
+!writte statistics on output file: 
+!iteration parameters, frequence of communities, number of fires
+  write(22,'(11f15.4)')c2,R(1),real(stfreq),real(numF) 
+  
+!+++++++++++++++ end R1 loop +++++++++++++++++++++++++++++++++++++++++++!
  end do
+ 
+!+++++++++++++++ end c2 loop +++++++++++++++++++++++++++++++++++++++++++!
 end do
 
 close(22)
 
-
 end program mainfire
 
-
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
+!                           SUBROUTINES                                !
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-    subroutine rk4(y,yout)
+ subroutine rk4(y,yout)
     
-   ! THIS SUBROUTINE INTEGRATES THE DIFFERENTIAL EQUATIONS USING 
-   ! RUNGE-KUPTA 4 INTEGRATION SCHEME
+ ! THIS SUBROUTINE INTEGRATES THE DIFFERENTIAL EQUATIONS USING 
+ ! RUNGE-KUTTA 4 INTEGRATION SCHEME
     
     use parafire
 
@@ -151,12 +170,12 @@ end program mainfire
     yout=y+h6*(k1+2*k2+2*k3+k4)
 
     return
-    end
+  end
 
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-     subroutine derivs(v,dv)
+ subroutine derivs(v,dv)
      
      !SUBROUTINE CALCULATING THE R.H.S. OF MODEL DIFFERENTIAL EQUATIONS
      !v = vegetation cover, dv = derivatives
@@ -172,13 +191,14 @@ end program mainfire
      dv(3)=c3*v(3)*(1-v(1)-v(2)-v(3))-m3*v(3)-c1*v(1)*v(3)-c2*v(2)*v(3)
 
         return
-     end
+ end
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-     subroutine decide(y,i)
+ subroutine decide(y,i)
 
-     !SUBROUTINE DECIDING THE TYPE OF STATE TO BE STORED IN stfreq()
+ !SUBROUTINE DECIDING THE TYPE OF STATE TO BE STORED IN stfreq()
+ !if b_i>delta then the plant is in the community
              
      implicit none
 
@@ -186,7 +206,7 @@ end program mainfire
      integer ::i
      real, parameter:: delta=0.03
 
-     i=8
+     i=8 !none
 
      if(y(1)>delta)then !combinations with b1
 
@@ -225,12 +245,12 @@ end program mainfire
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-      subroutine fireocc(b,iifire,bout)
-      !THIS SUBROUTINE UPDATE VEGETATION COVER AFTER THE FIRE CONDITION 
-      ! IF iifire=1 THEN A FIRE OCCURRED AND b_i IS SET TO R_i*b_i 
-      ! OTHERWISE THE COVER IS NOT CHANGED
-      ! WHEN iifire=1 AND R_i*b_i IS LOWER THAN A MINIMUM COVER 'delt_i' (from parafire.f90)
-      ! THE COVER IS SET TO delt_i
+  subroutine fireocc(b,iifire,bout)
+   !THIS SUBROUTINE UPDATE VEGETATION COVER AFTER THE FIRE CONDITION 
+   ! IF iifire=1 THEN A FIRE OCCURRED AND b_i IS SET TO R_i*b_i 
+   ! OTHERWISE THE COVER IS NOT CHANGED
+   ! WHEN iifire=1 AND R_i*b_i IS LOWER THAN A MINIMUM COVER 'delt_i' (from parafire.f90)
+   ! THE COVER IS SET TO delt_i
 
       use parafire
       
@@ -245,14 +265,12 @@ end program mainfire
       bout(2)=b(2)*(1-iifire)+max(b(2)*R(2),delt(2))*iifire
       bout(3)=b(3)*(1-iifire)+max(b(3)*R(3),delt(3))*iifire  
 
-
-
-      end subroutine
+end subroutine
       
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
 
-      FUNCTION RAN3(IDUM)
+  FUNCTION RAN3(IDUM)
       ! RANDOM NUMBER GENERATOR - FROM NUMERICAL RECIPES IN FORTRAN
       
       SAVE
