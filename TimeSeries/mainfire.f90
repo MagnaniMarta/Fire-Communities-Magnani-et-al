@@ -12,18 +12,18 @@
 ! program input : 'parafire.f90', different for each biome                      !
 ! program output : 1) time series of vegetation cover and expected fire return  !
 !                  time ('tbTf.dat')                                            !
-!                  2) statistics over last 20% simulation time ('stats.dati')   !
+!                  2) statistics over last 20% simulation time ('stats.dat')    !
 !                                                                               !
-! authors: Magnani M., Baudena M.                                               !
-! temporary reference: Fire responses shape plant communities in a minimal      !
-!                      model for fire ecosystems worldwide. Magnani M.,         !
-!                      Diaz-Sierra R., Sweneey L., Provenzale A., Baudena M.    !
+! subroutine at the and                                                         !
 !+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-program mainfire
-use parafire
+program mainfire !start program
+
+use parafire !load parameters of plant characteristics from parafireXXX.f90
 
 implicit none
+
+!++++++++++++++++++++++++  Definitions +++++++++++++++++++++++++++++++++++++++++!
 
 double precision,dimension(3) ::  b                          ! plant covers
 double precision,dimension(3) ::  f,fout                     ! variables for plant cover calculation
@@ -46,7 +46,7 @@ open (22,file='stats.dat')
 !initialization parameters
 firevf=NN
 iifire=0
-idummy=12
+idummy=12  ! change here to generate different random initial conditions
 lastF=0
 numF=0
 
@@ -58,13 +58,16 @@ b(3)=ran3(idummy)
 b=b/sum(b)
 bav=0.d0*b
     
-! time loop
+!++++++++++++++++++++++++++ Start time loop +++++++++++++++++++++++++++++++++++++++++!
+! 2 steps: 1) compute deterministic succession b(t)->b(t+dt); 2) a stochastic fire   
+! may occur b(t+dt)->R*b(t+dt)          
+  
 do i=1,NN      
           
 ! integration deterministic succession
-  f=b 
-  call rk4(f,fout)
-  f=fout
+  f=b !b(t)
+  call rk4(f,fout) !subroutine: fourth order Runge-Kutta scheme (see line 138)
+  f=fout !b(t+dt)
           
 ! stochastic fire dynamics:
 ! average retur time Tf(L_i,b_i)
@@ -72,47 +75,54 @@ do i=1,NN
 ! with occurrence probability P=dt/Tf
 
   dummy=ran3(idummy)             
-  tf=1./(L(1)*b(1)+L(2)*b(2)+L(3)*b(3)+eps)    
+  tf=1./(L(1)*b(1)+L(2)*b(2)+L(3)*b(3)+eps)  !average fire return time
   tfdum=nint(dummy*365*tf)
 
+!-------- fire condition -------------------------------------------
   if (tfdum==nint(tf)*365-1 .and. int(firevf)>=minfirerettime) then
 !  if (dummy<=hy/tf .and. int(firevf)>=minfirerettime) then  !alternative Bernoulli condition
 
-    iifire=1 !fire
-    firevf=0.d0
+    iifire=1    !fire occurs
+    firevf=0.d0 !reset time since last fire
 
+    !compute statistics over last 20% of simulation time 
     if (i>=statout) then
-      tfav=tfav+0.001*real(i-lastF)*dtoyr
-      lastF=i
-      numF=numF+1
-      bav=bav+0.001d0*b
+      tfav=tfav+0.001*real(i-lastF)*dtoyr ! sum fire return interval
+      lastF=i               ! time of last fire
+      numF=numF+1           ! number of fires
+      bav=bav+0.001d0*b     ! average vegetation cover 
     end if
           
   else  
-     iifire=0 !no fire
-     firevf=firevf+hy
+     iifire=0           !no fire
+     firevf=firevf+hy   !increase time since last fire
           
     end if
+!-------------------------------------------------------------------
 
-! vegetation update
+ ! vegetation update
   call fireocc(f,iifire,fout)
   b=fout
 
+ ! write istantaneous values every 100 steps or when fire
   if (mod(i,100)==0 .or. iifire>0) then
     write (21,'(1i15,4f15.4)') i,b,tf
   end if
 
 end do
 
+!+++++++++++++++ end time loop +++++++++++++++++++++++++++++++++++++++++++!
+
 !compute statistics
 if(numF>0)then !fires occurred
         bav=bav*1000/real(numF)
         tfav=tfav*1000/real(numF)
-else !no fire occurred
+else  !no fire occurred
         bav=b
         tfav=0.d0
 end if
 
+! write average vegetation cover and fire return time over last 20% simulation time
 write(22,'(4f15.4)') bav,tfav
 
 close(21)
@@ -123,8 +133,10 @@ end program mainfire
 
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
+!                           SUBROUTINES                                !
+!++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-    subroutine rk4(y,yout)
+subroutine rk4(y,yout)
     
    ! THIS SUBROUTINE INTEGRATES THE DIFFERENTIAL EQUATIONS USING 
    ! RUNGE-KUPTA 4 INTEGRATION SCHEME
@@ -150,12 +162,12 @@ end program mainfire
     yout=y+h6*(k1+2*k2+2*k3+k4)
 
     return
-    end
+  end
 
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-     subroutine derivs(v,dv)
+ subroutine derivs(v,dv)
      
      !SUBROUTINE CALCULATING THE R.H.S. OF MODEL DIFFERENTIAL EQUATIONS
      !v = vegetation cover, dv = derivatives
@@ -171,11 +183,11 @@ end program mainfire
      dv(3)=c3*v(3)*(1-v(1)-v(2)-v(3))-m3*v(3)-c1*v(1)*v(3)-c2*v(2)*v(3)
 
         return
-     end
+ end
 
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
-      subroutine fireocc(b,iifire,bout)
+ subroutine fireocc(b,iifire,bout)
       !THIS SUBROUTINE UPDATE VEGETATION COVER AFTER THE FIRE CONDITION 
       ! IF iifire=1 THEN A FIRE OCCURRED AND b_i IS SET TO R_i*b_i 
       ! OTHERWISE THE COVER IS NOT CHANGED
@@ -195,14 +207,12 @@ end program mainfire
       bout(2)=b(2)*(1-iifire)+max(b(2)*R(2),delt(2))*iifire
       bout(3)=b(3)*(1-iifire)+max(b(3)*R(3),delt(3))*iifire  
 
-
-
-      end subroutine
+end subroutine
       
 !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++!
 
 
-      FUNCTION RAN3(IDUM)
+FUNCTION RAN3(IDUM)
       ! RANDOM NUMBER GENERATOR - FROM NUMERICAL RECIPES IN FORTRAN
       
       SAVE
