@@ -9,7 +9,6 @@ implicit none
 ! COLONIZATION AND MORTALITY RATES
 double precision,parameter :: c1  = 0.20d0   ! yr^-1
 double precision,parameter :: m1  = 0.01d0   ! yr^-1
-!double precision,parameter :: c2 = 0.15d0   ! yr^-1
 double precision,parameter :: m2  = 0.06d0   ! yr^-1
 double precision,parameter :: c3  = 20d0     ! yr^-1 
 double precision,parameter :: m3  = 3d0      ! yr^-1 
@@ -24,7 +23,6 @@ integer,parameter            :: NN = maxT*365           ! integration time steps
 integer,parameter            :: statout = nint(0.8*NN)  !starting time of statistics (bav and tfav) calculation
 
 !FIRE PARAMS
-!double precision,parameter            :: R(3) = (/0.10d0,0.70d0,0.85d0/)  ! fire respoonses
 integer                               :: r1                               ! fire respoonse PFT1
 integer,parameter                     :: r2=70,r3=85                      ! fire response PFT2
 double precision                      :: R(3)                             ! fire respoonses
