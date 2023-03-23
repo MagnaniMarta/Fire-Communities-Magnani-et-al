@@ -14,7 +14,7 @@ a fire-vegetation feedback.
 
 # Content
 
-2 folders:
+3 folders:
 
 TimeSeries/
 
@@ -41,6 +41,17 @@ Change 'idummy' and 'MSEED' in run3() several times to obtain the parameter plan
 
   parafire.f90 : module containing parameter values. Iteration parameters must not be fixed.
                Change the parameter values to represent different biomes as described above.
+               
+ CalibrationBoreal/
+ 
+ Codes in this folder can be used for model calibration.
+ 
+   main_nofire.f90 : master code simulating the time series of vegetation cover of one species without fires. Subroutines at the end of the file.
+
+   parafireBor.f90 : module containing parameter values. Change 'c1' to find the value for which the cover attains its asymptotic values
+                     within a time comparable to the value reported in 'boreal-species.csv' in 'time of max cover after burning'.    
+
+   boreal-species.csv: values used for calibration in Magnani et al., 2023 (see the Online Supplement B).
 
 
 See the paper for plant type and parameter estimation.
