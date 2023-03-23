@@ -58,10 +58,13 @@ See the paper for plant type and parameter estimation.
 
 # How to run
 
-The code is provided in Fortran language.
+The code is provided in Fortran language. Fortran compilers can for instance be downloaded from the webpage: 
+https://www.intel.com/content/www/us/en/developer/tools/oneapi/toolkits.html#hpc-kit
+For an introductory guide to fortran language see Perrin, C. L. (1997). Numerical Recipes in Fortran 90: The Art of Scientific Computing, Volume 2. 
+By William H. Press, Saul A. Teukolsky, William T. Vetterling, and Brian P. Flannery. Cambridge University Press: New York, 1996.  
 
 Example of code compilation:
-gfortran parafireMed.f90 mainfire.f90 -o runFire
+ifort parafireMed.f90 mainfire.f90 -o runFire
 
 
 # References and Contacts
